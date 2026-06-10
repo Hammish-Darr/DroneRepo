@@ -6,7 +6,8 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include <fcntl.h>
-
+#include <string.h>
+#include <errno.h>
 int main(int argc, char * argv[]){
 
     int sockfd, newsockfd, charn;
@@ -51,34 +52,53 @@ int main(int argc, char * argv[]){
     }
 
 
-
+    printf("Printing F1");
+    
+    uint32_t jpgDataSize = 0;
 
     for(int i = 0; i < 100; i++){
 
 
-    uint32_t len;
+        uint32_t len;
 
-    read(newsockfd, &len, sizeof(len));
+        read(newsockfd, &len, sizeof(len));
+        //printf("Length (len) is : %d", len);
+        //printf("Printing F");
 
-    len = ntohl(len);
-    printf("Length (len) is : %d", len);
+        len = ntohl(len);
 
-    void * jpgData = malloc(len);
+        //printf("Length (len) is : %d", len);
 
-    charn = read(newsockfd, jpgData, len); //Read from sock
+        void * jpgData = malloc(len);
+        jpgDataSize = len;
 
+        bzero(jpgData, jpgDataSize);
+        charn = 0;
 
+        while(len > 0){
 
-    char filename[64];
-    snprintf(filename, sizeof(filename), "image%d.jpg", i);
+            charn = read(newsockfd, jpgData+jpgDataSize-len, len); //Read from sock
+            if(!(charn < 0)){
+                len -= charn;
+            }
+            else{
+                puts("Error occurred");
+                printf("read failed: %s\n", strerror(errno));
+                return 1;
+            }
+        }
 
-    fptr = fopen(filename, "w");
+        char filename[64];
+        snprintf(filename, sizeof(filename), "image%d.jpg", i);
 
-    fwrite(jpgData, 1, len, fptr);
+        fptr = fopen(filename, "w");
 
-    free(jpgData);
+        fwrite(jpgData, 1, jpgDataSize, fptr);
+        
 
-    fclose(fptr);
+        free(jpgData);
+
+        fclose(fptr);
 
     }
 
