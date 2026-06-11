@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netdb.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
@@ -15,7 +16,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 
-int streamJpgData(int sockfd, FILE * fptr, int numFrames){
+int streamJpgData(int sockfd, int numFrames){
 
     SDL_Init(SDL_INIT_VIDEO); //Initialise image rendering library
     IMG_Init(IMG_INIT_JPG);
@@ -92,7 +93,7 @@ int streamJpgData(int sockfd, FILE * fptr, int numFrames){
         }
         SDL_FreeSurface(surface);
 
-        SDL_RenderClear(renderer);
+        //SDL_RenderClear(renderer);
         SDL_RenderCopy(renderer, texture, NULL, NULL);
         SDL_RenderPresent(renderer);
 
@@ -124,56 +125,37 @@ int streamJpgData(int sockfd, FILE * fptr, int numFrames){
 
 int main(int argc, char * argv[]){
 
-    int sockfd, newsockfd, charn;
-    uint clilen, portno;
+    int portno, sockfd, charn;
+    struct sockaddr_in servaddr;
+    struct hostent * serv;
 
-    FILE * fptr;
-
-
-    struct sockaddr_in servaddr, cliaddr;
-
-    
-
-
-    if(argc != 2){
-        printf("Please provide the correct arguments\n");
-        return 1;
-    }
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if(sockfd < 0){
-        printf("Failed to create socket\n");
+        printf("Error opening socket\n");
+    }
+
+    if(argc != 3){
+        printf("Please correctly provide inputs: IP, PORT");
+        return 1;
+
+    }
+    portno = atoi(argv[2]);
+    serv = gethostbyname(argv[1]);
+    if(serv == NULL){
+        printf("No such server exists\n");
         return 1;
     }
 
-    bzero((char *)&servaddr.sin_zero, sizeof(servaddr.sin_zero));
-
-    portno = atoi(argv[1]);
-
+    bzero((char *) &servaddr.sin_zero, sizeof(servaddr.sin_zero));
     servaddr.sin_family = AF_INET;
+    bcopy((char *)serv->h_addr, (char *)&servaddr.sin_addr.s_addr, serv->h_length); //Copy from found server address to sock serv addr
     servaddr.sin_port = htons(portno);
-    servaddr.sin_addr.s_addr = INADDR_ANY;
-
-    if (bind(sockfd, ((struct sockaddr *) &servaddr), sizeof(servaddr)) > 0){
-        printf("SOcket binding failed, port likely already bound\n");
-        return 1;
-
-    }
-    listen(sockfd, 5);
-    clilen = sizeof(cliaddr);
-
-    newsockfd = accept(sockfd, (struct sockaddr *) &cliaddr, &clilen);
-
-    if(newsockfd < 0){
-        printf("error on accepting client\n");
+    if (connect(sockfd, (struct sockaddr *) &servaddr, sizeof(servaddr)) < 0){
+        printf("Server connection error\n");
         return 1;
     }
 
-    streamJpgData(newsockfd, fptr, 1000);
-
-
-    printf("Printing F1");
-    
-    shutdown(sockfd, SHUT_RDWR);
-    close(sockfd);
+    streamJpgData(sockfd, 1000);
     return 0;
+
 }

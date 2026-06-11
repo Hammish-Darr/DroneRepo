@@ -50,11 +50,11 @@ void startCamera() {
 
     // WROVER has PSRAM, so we can use larger frames
     if (psramFound()) {
-        config.frame_size   = FRAMESIZE_VGA; // 
+        config.frame_size   = FRAMESIZE_QVGA; // 
         config.jpeg_quality = 20;
         config.fb_count     = 4;              // double buffer for smoother capture
     } else {
-        config.frame_size   = FRAMESIZE_SVGA; // fallback
+        config.frame_size   = FRAMESIZE_QVGA; // fallback
         config.jpeg_quality = 15;
         config.fb_count     = 2;
     }
@@ -86,10 +86,11 @@ void connectBasicWifi(const char * ssid, const char * password){
   Serial.println(WiFi.localIP());
 }
 
-int sockfd, portno, charn;
+int sockfd, charn, newsockfd, portno;
+long unsigned int clilen;
 char IPAddr[16];
 
-struct sockaddr_in servaddr;
+struct sockaddr_in servaddr, cliaddr;
 struct hostent * serv = NULL;
 bool isOff = false;
 
@@ -111,36 +112,49 @@ void setup() {
     Serial.println("Socket creation error occurs");
   }
   
-  while(serv == NULL){
-    Serial.println("Input server IP address:");
-    while(Serial.available() == 0){
-      delay(100);
-    }
-    if(Serial.available() > 0){
-      if(Serial.available() > sizeof(IPAddr)-1){
-        Serial.println("Invalid IP Address input");
-        Serial.readStringUntil('\n');
+  if(1 == 2){//This is my way of commenting out cause FUCK you
+    while(serv == NULL){
+      Serial.println("Input server IP address:");
+      while(Serial.available() == 0){
+        delay(100);
       }
-      else{
-        IPAddr[Serial.available()] = '\0';
-        strcpy(IPAddr, Serial.readStringUntil('\n').c_str());
+      if(Serial.available() > 0){
+        if(Serial.available() > sizeof(IPAddr)-1){
+          Serial.println("Invalid IP Address input");
+          Serial.readStringUntil('\n');
+        }
+        else{
+          IPAddr[Serial.available()] = '\0';
+          strcpy(IPAddr, Serial.readStringUntil('\n').c_str());
+        }
       }
-    }
-    Serial.println(IPAddr);
-    serv = gethostbyname(IPAddr);
-    if(serv == NULL){
-      Serial.println("Error resolving server by hostname");
-    }
+      Serial.println(IPAddr);
+      serv = gethostbyname(IPAddr);
+      if(serv == NULL){
+        Serial.println("Error resolving server by hostname");
+      }
 
+    }
   }
 
   bzero((char *) &servaddr.sin_zero, sizeof(servaddr.sin_zero));
   servaddr.sin_family = AF_INET;
-  bcopy((char *)serv->h_addr, (char *)&servaddr.sin_addr.s_addr, serv->h_length); //Copy from found server address to sock serv addr
+  //bcopy((char *)serv->h_addr, (char *)&servaddr.sin_addr.s_addr, serv->h_length); //Copy from found server address to sock serv addr
   servaddr.sin_port = htons(portno);
-  if (connect(sockfd, (struct sockaddr *) &servaddr, sizeof(servaddr)) < 0){
-    printf("Server connection error\n");
+  servaddr.sin_addr.s_addr = INADDR_ANY;
+
+  if(bind(sockfd, (struct sockaddr * ) &servaddr, sizeof(servaddr)) > 0){ //??SHould this be greater than??
+    Serial.println("Socket binding error occurs");
   }
+  listen(sockfd, 5);
+
+  newsockfd = accept(sockfd, (struct sockaddr * ) &cliaddr, &clilen);
+
+
+
+  //if (connect(sockfd, (struct sockaddr *) &servaddr, sizeof(servaddr)) < 0){
+  //  printf("Server connection error\n");
+  //}
 
 
 
@@ -161,10 +175,10 @@ void loop() {
     }
     uint32_t len = htonl(fb->len);
 
-    write(sockfd, &len, sizeof(len));
+    write(newsockfd, &len, sizeof(len));
 
-    charn = write(sockfd, fb->buf, fb->len);
-    //Serial.printf("Frame: %d bytes, %dx%d\n", fb->len, fb->width, fb->height);
+    charn = write(newsockfd, fb->buf, fb->len);
+    Serial.printf("Frame: %d bytes, %dx%d\n", fb->len, fb->width, fb->height);
     //Serial.write(fb->buf, fb->len);
 
     esp_camera_fb_return(fb);
