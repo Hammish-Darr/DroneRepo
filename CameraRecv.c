@@ -56,30 +56,36 @@ int main(int argc, char * argv[]){
     
     uint32_t jpgDataSize = 0;
 
-    for(int i = 0; i < 100; i++){
+    void * jpgData = malloc(200000);
+    jpgDataSize = 200000; //200KB (0.2 MB)
+    uint32_t jpgByteLength;
+
+    for(int i = 0; i < 1000; i++){
 
 
-        uint32_t len;
+        uint32_t remLength;
 
-        read(newsockfd, &len, sizeof(len));
+        read(newsockfd, &remLength, sizeof(remLength));
         //printf("Length (len) is : %d", len);
         //printf("Printing F");
 
-        len = ntohl(len);
+        remLength = ntohl(remLength);
+        jpgByteLength = remLength;
 
         //printf("Length (len) is : %d", len);
 
-        void * jpgData = malloc(len);
-        jpgDataSize = len;
-
+        if(jpgByteLength > jpgDataSize){
+            free(jpgData);
+            void * jpgData = malloc(jpgByteLength);
+            jpgDataSize = remLength;
+        }
         bzero(jpgData, jpgDataSize);
-        charn = 0;
 
-        while(len > 0){
+        while(remLength > 0){
 
-            charn = read(newsockfd, jpgData+jpgDataSize-len, len); //Read from sock
+            charn = read(newsockfd, jpgData+jpgByteLength-remLength, remLength); //Read from sock
             if(!(charn < 0)){
-                len -= charn;
+                remLength -= charn;
             }
             else{
                 puts("Error occurred");
@@ -93,14 +99,12 @@ int main(int argc, char * argv[]){
 
         fptr = fopen(filename, "w");
 
-        fwrite(jpgData, 1, jpgDataSize, fptr);
-        
-
-        free(jpgData);
+        fwrite(jpgData, 1, jpgByteLength, fptr);
 
         fclose(fptr);
 
     }
+    free(jpgData);
 
     shutdown(sockfd, SHUT_RDWR);
     close(sockfd);

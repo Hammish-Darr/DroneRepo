@@ -50,13 +50,13 @@ void startCamera() {
 
     // WROVER has PSRAM, so we can use larger frames
     if (psramFound()) {
-        config.frame_size   = FRAMESIZE_UXGA; // 1600x1200
-        config.jpeg_quality = 10;
-        config.fb_count     = 2;              // double buffer for smoother capture
+        config.frame_size   = FRAMESIZE_SVGA; // 
+        config.jpeg_quality = 30;
+        config.fb_count     = 3;              // double buffer for smoother capture
     } else {
         config.frame_size   = FRAMESIZE_SVGA; // fallback
-        config.jpeg_quality = 12;
-        config.fb_count     = 1;
+        config.jpeg_quality = 15;
+        config.fb_count     = 2;
     }
 
     esp_err_t err = esp_camera_init(&config);
